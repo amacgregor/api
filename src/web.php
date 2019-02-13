@@ -4,16 +4,29 @@ $basePath =  realpath(__DIR__ . '/../');
 
 require $basePath . '/vendor/autoload.php';
 
+// Get Environment name
+$projectName = \Directus\get_api_project_from_request();
+try {
+    \Directus\Util\Installation\InstallerUtils::ensureConfigFileExists($basePath, $projectName);
+} catch (\Exception $e) {
+    http_response_code(422);
+    header('Content-Type: application/json');
+    echo json_encode([
+        'error' => [
+            'error' => null,
+            'message' => 'Unknown project: ' . $projectName
+        ]
+    ]);
+    exit;
+}
+
 // Creates a simple endpoint to test the server rewriting
 // If the server responds "pong" it means the rewriting works
 // NOTE: The API requires the default project to be configured to properly works
 //       It should work without the default project being configured
 if (!file_exists($basePath . '/config/api.php')) {
-    return \Directus\create_default_app($basePath);
+    return \Directus\create_default_app($basePath, [], [], ['allowed_origins' => [$projectName, '_']]);
 }
-
-// Get Environment name
-$projectName = \Directus\get_api_project_from_request();
 
 // All "globals" endpoints requires the project name beforehand
 // Otherwise there's not way to tell which database to connect to
@@ -104,8 +117,14 @@ $app->get('/', \Directus\Api\Routes\Home::class)
     ->add($middleware['auth_ignore_origin'])
     ->add($middleware['table_gateway']);
 
-$app->group('/projects', \Directus\Api\Routes\Projects::class)
-    ->add($middleware['table_gateway']);
+$app->group('/projects', function () use ($middleware) {
+    $this->get('', \Directus\Api\Routes\ProjectsCreate::class);
+
+    $this->delete('/{name}', \Directus\Api\Routes\ProjectsDelete::class)
+        ->add($middleware['auth_admin'])
+        ->add($middleware['auth'])
+        ->add($middleware['auth_ignore_origin']);
+})->add($middleware['table_gateway']);
 
 $app->group('/{project}', function () use ($middleware) {
     $this->get('/', \Directus\Api\Routes\ProjectHome::class)

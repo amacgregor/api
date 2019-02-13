@@ -7,6 +7,7 @@ use Directus\Exception\ForbiddenException;
 use Directus\Exception\InvalidConfigPathException;
 use Directus\Exception\InvalidDatabaseConnectionException;
 use Directus\Exception\ProjectAlreadyExistException;
+use Directus\Exception\UnprocessableEntityException;
 use Directus\Util\ArrayUtils;
 use Directus\Util\Installation\InstallerUtils;
 
@@ -83,6 +84,25 @@ class ProjectService extends AbstractService
             InstallerUtils::addDefaultSettings($basePath, $data, $projectName);
             InstallerUtils::addDefaultUser($basePath, $data, $projectName);
         }
+    }
+
+    /**
+     * Deletes a project with the given name
+     *
+     * @param string $name
+     *
+     * @throws UnprocessableEntityException
+     */
+    public function delete($name)
+    {
+        if (!is_string($name) || !$name) {
+            throw new UnprocessableEntityException('Invalid project name');
+        }
+
+        $basePath = $this->container->get('path_base');
+        InstallerUtils::ensureConfigFileExists($basePath, $name);
+        InstallerUtils::cleanDatabase($basePath, $name);
+        InstallerUtils::deleteConfigFile($basePath, $name);
     }
 
     /**

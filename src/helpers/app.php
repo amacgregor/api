@@ -2,9 +2,13 @@
 
 namespace Directus;
 
-use Directus\Api\Routes\Projects;
+use Directus\Api\Routes\ProjectsCreate;
+use Directus\Api\Routes\ProjectsDelete;
 use Directus\Application\Application;
 use Directus\Application\ErrorHandlers\NotInstalledNotFoundHandler;
+use Directus\Application\Http\Middleware\AdminOnlyMiddleware;
+use Directus\Application\Http\Middleware\AuthenticationIgnoreOriginMiddleware;
+use Directus\Application\Http\Middleware\AuthenticationMiddleware;
 use Directus\Application\Http\Middleware\CorsMiddleware;
 use Directus\Application\Http\Request;
 use Directus\Application\Http\Response;
@@ -162,12 +166,22 @@ if (!function_exists('create_install_route')) {
      * Create a new install route
      *
      * @param Application $app
+     * @param array $options
      *
      * @return Application
      */
-    function create_install_route(Application $app)
+    function create_install_route(Application $app, array $options = [])
     {
-        $app->group('/projects', Projects::class);
+        $app->post('/projects', ProjectsCreate::class);
+
+        $app->delete('/projects/{name}', ProjectsDelete::class)
+            ->add(new AdminOnlyMiddleware($app->getContainer()))
+            ->add(new AuthenticationMiddleware($app->getContainer()))
+            ->add(new AuthenticationIgnoreOriginMiddleware(
+                    $app->getContainer(),
+                    array_get($options, 'allowed_origins', [])
+                )
+            );
 
         return $app;
     }
@@ -206,10 +220,11 @@ if (!function_exists('create_default_app')) {
      * @param string $basePath
      * @param array $config
      * @param array $values
+     * @param array $options
      *
      * @return Application
      */
-    function create_default_app($basePath, array $config = [], array $values = [])
+    function create_default_app($basePath, array $config = [], array $values = [], array $options = [])
     {
         if (!isset($values['notFoundHandler'])) {
             $values['notFoundHandler'] = function () {
@@ -228,7 +243,7 @@ if (!function_exists('create_default_app')) {
         $app->group('/server', function () {
             create_ping_route($this);
         });
-        create_install_route($app);
+        create_install_route($app, $options);
 
         return $app;
     }

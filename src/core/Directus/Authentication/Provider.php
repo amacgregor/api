@@ -208,15 +208,15 @@ class Provider
      * Authenticate an user using a JWT Token
      *
      * @param string $token
-     * @param bool $ignoreOrigin
+     * @param array $allowedOrigins
      *
      * @return UserInterface
      *
      * @throws InvalidTokenException
      */
-    public function authenticateWithToken($token, $ignoreOrigin = false)
+    public function authenticateWithToken($token, array $allowedOrigins = null)
     {
-        $payload = $this->getTokenPayload($token, $ignoreOrigin);
+        $payload = $this->getTokenPayload($token, $allowedOrigins);
         if (!JWTUtils::hasPayloadType(JWTUtils::TYPE_AUTH, $payload)) {
             throw new InvalidTokenException();
         }
@@ -552,18 +552,27 @@ class Provider
      * Verifies and Returns the payload if valid
      *
      * @param string $token
-     * @param bool $ignoreOrigin
+     * @param array $allowedOrigins
      *
      * @return object
      *
      * @throws InvalidTokenException
      */
-    protected function getTokenPayload($token, $ignoreOrigin = false)
+    protected function getTokenPayload($token, array $allowedOrigins = null)
     {
-        $projectName = $ignoreOrigin ? JWTUtils::getPayload($token, 'project') : null;
+        $tokenProject = JWTUtils::getPayload($token, 'project');
+        if ($allowedOrigins !== null || in_array($tokenProject, $allowedOrigins)) {
+            $projectName = $tokenProject;
+            $onlyLocalOrigin = false;
+        } else {
+            $projectName = null;
+            $onlyLocalOrigin = true;
+        }
+
+        // $projectName = $ignoreOrigin ? JWTUtils::getPayload($token, 'project') : null;
         $payload = JWTUtils::decode($token, $this->getSecretKey($projectName), [$this->getTokenAlgorithm()]);
 
-        if ($ignoreOrigin !== true && !$this->isPayloadLocal($payload)) {
+        if ($onlyLocalOrigin && !$this->isPayloadLocal($payload)) {
             // Empty payload, log this as debug?
             throw new InvalidTokenException();
         }

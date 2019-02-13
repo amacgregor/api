@@ -97,7 +97,11 @@ class AuthenticationMiddleware extends AbstractMiddleware
             /** @var AuthService $authService */
             $authService = $this->container->get('services')->get('auth');
 
-            $user = $authService->authenticateWithToken($authToken, $request->getAttribute('ignore_origin'));
+            $allowedOrigins = $request->getAttribute('ignore_origin') === true
+                ? $request->getAttribute('allowed_origins')
+                : null;
+
+            $user = $authService->authenticateWithToken($authToken, $allowedOrigins);
         }
 
         return $user;

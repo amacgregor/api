@@ -183,14 +183,14 @@ class AuthService extends AbstractService
 
     /**
      * @param string $token
-     * @param bool $ignoreOrigin
+     * @param array $allowedOrigins
      *
      * @return UserInterface
      */
-    public function authenticateWithToken($token, $ignoreOrigin = false)
+    public function authenticateWithToken($token, array $allowedOrigins = null)
     {
         if (JWTUtils::isJWT($token)) {
-            $authenticated = $this->getAuth()->authenticateWithToken($token, $ignoreOrigin);
+            $authenticated = $this->getAuth()->authenticateWithToken($token, $allowedOrigins);
         } else {
             $authenticated = $this->getAuth()->authenticateWithPrivateToken($token);
         }
