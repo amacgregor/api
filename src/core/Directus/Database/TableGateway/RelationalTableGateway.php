@@ -1234,6 +1234,9 @@ class RelationalTableGateway extends BaseTableGateway
             $mainColumn = array_pop($columns);
             $mainTable = array_pop($columnsTable);
 
+            $mainCollection = $this->getTableSchema($mainTable);
+            $mainField = $mainCollection->getField($mainColumn);
+
             // the main query column
             // where the filter is going to be applied
             $column = array_shift($columns);
@@ -1241,10 +1244,32 @@ class RelationalTableGateway extends BaseTableGateway
 
             $query = new Builder($this->getAdapter());
             $mainTableObject = $this->getTableSchema($table);
-            $query->columns([$mainTableObject->getPrimaryField()->getName()]);
-            $query->from($table);
 
-            $this->doFilter($query, $column, $condition, $table);
+            if ($mainField->isManyToMany()) {
+                $relationship = $mainField->getRelationship();
+                $manyTable = $relationship->getCollectionMany();
+                $query->columns([$relationship->getFieldMany()]);
+                $query->from($manyTable);
+                $manyCollection = $this->getTableSchema($manyTable);
+                $manyCollectionFields = $manyCollection->getFields();
+                $relationFieldMany = null;
+                foreach ($manyCollectionFields as $manyCollectionFieldName => $manyCollectionField) {
+                    $manyCollectionFieldRelation = $manyCollectionField->getRelationship();
+                    if (
+                        $manyCollectionFieldRelation &&
+                        $manyCollectionFieldRelation->getCollectionMany() === $manyTable &&
+                        $manyCollectionFieldRelation->getCollectionOne() === $mainColumn
+                    ) {
+                        $relationFieldMany = $manyCollectionFieldRelation->getFieldMany();
+                        break;
+                    }
+                }
+                $this->doFilter($query, $relationFieldMany, $condition, $manyTable);
+            } else {
+                $query->columns([$mainTableObject->getPrimaryField()->getName()]);
+                $query->from($table);
+                $this->doFilter($query, $column, $condition, $table);
+            }
 
             $index = 0;
             foreach ($columns as $key => $column) {
@@ -1287,6 +1312,8 @@ class RelationalTableGateway extends BaseTableGateway
                     $column,
                     $oldQuery
                 );
+            } else if ($field->isManyToMany()) {
+                $mainColumn = $collection->getPrimaryField()->getName();
             }
 
             $this->doFilter(

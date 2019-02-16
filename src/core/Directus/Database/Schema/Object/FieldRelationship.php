@@ -8,6 +8,7 @@ class FieldRelationship extends AbstractObject
 {
     const ONE_TO_MANY = 'O2M';
     const MANY_TO_ONE = 'M2O';
+    const MANY_TO_MANY = 'M2M';
 
     /**
      * The field this relationship belongs to
@@ -102,6 +103,16 @@ class FieldRelationship extends AbstractObject
     }
 
     /**
+     * Check whether the relationship is MANY TO MANY
+     *
+     * @return bool
+     */
+    public function isManyToMany()
+    {
+        return $this->getType() === static::MANY_TO_MANY;
+    }
+
+    /**
      * Guess the data type
      *
      * @return null|string
@@ -115,6 +126,7 @@ class FieldRelationship extends AbstractObject
         }
 
         $fieldName = $this->fromField->getName();
+        $interface = $this->fromField->attributes->get('interface');
         $fieldCollectionName = $this->fromField->getCollectionName();
         $isAlias = $this->fromField->isAlias();
 
@@ -124,7 +136,7 @@ class FieldRelationship extends AbstractObject
             $this->getFieldMany()       === $fieldName &&
             $this->getCollectionMany()  === $fieldCollectionName
         ) {
-            $type = static::MANY_TO_ONE;
+            $type = ($interface === 'many-to-many') ? static::MANY_TO_MANY : static::ONE_TO_MANY;
         } else if (
             $isAlias                    &&
             $this->getCollectionMany()  !== null &&
